@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D Transformation Playground - Dark Mode</title>
+  <style>
+    body {
+      background-color: #181818;
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    /* Custom Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+    }
+    /* Container for builder & matrix visualiser, centered */
+    #builderContainer {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    /* Panels */
+    .control-panel {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      width: 350px;
+      box-sizing: border-box;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .control-panel h3 {
+      margin-top: 0;
+      font-size: 1.1em;
+      margin-bottom: 12px;
+    }
+    label {
+      font-size: 0.9em;
+    }
+    select, input {
+      width: 70px;
+      padding: 4px;
+      margin: 4px 0;
+      background: #333;
+      color: #fff;
+      border: 1px solid #777;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    button {
+      font-size: 0.9em;
+      padding: 6px 10px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border: none;
+      background: #007BFF;
+      color: white;
+      border-radius: 4px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    /* Transformation sequence builder (vertical list) */
+    #transformationList {
+      margin-top: 12px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.3);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .transformation-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      padding: 4px 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+    .transformation-row span {
+      flex-grow: 1;
+      margin: 0 4px;
+      font-size: 0.9em;
+    }
+    .small-btn {
+      padding: 2px 6px;
+      font-size: 0.8em;
+      margin: 0 2px;
+    }
+    /* Matrix Visualiser Panel */
+    #matrixVisualiserPanel {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      width: 350px;
+      box-sizing: border-box;
+      font-size: 0.9em;
+      text-align: left;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    #matrixVisualiserPanel h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.1em;
+    }
+    .matrix-block {
+      margin-bottom: 12px;
+      font-family: monospace;
+      white-space: pre; 
+      background: rgba(0,0,0,0.3);
+      padding: 6px;
+      border-radius: 4px;
+    }
+    /* Canvas Container */
+    #canvasContainer {
+      position: relative;
+      margin: 0 auto;
+      max-width: 800px;
+    }
+    canvas {
+      display: block;
+      border: 2px solid #555;
+      background-color: #222;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.6);
+      width: 100%;
+      height: auto;
+    }
+    /* Minimalist Offset Control Panel (attached to grid) */
+    #offsetControlPanel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(8px);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 0.9em;
+      display: inline-block;
+    }
+    #offsetControlPanel button {
+      padding: 4px 8px;
+      font-size: 0.8em;
+    }
+    /* Draggable Offset Box (drag and snap feature restored, overlay removed) */
+    #offsetControl {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: transparent; /* overlay removed */
+      border: none; /* overlay removed */
+      cursor: move;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <h2>2D Transformation Playground</h2>
+
+  <!-- Builder & Matrix Visualiser Container, centered -->
+  <div id="builderContainer">
+    <!-- Transformation Builder Panel -->
+    <div class="control-panel" id="transformBuilderPanel">
+      <h3>Transformation Builder</h3>
+      <div class="transform-controls">
+        <label for="transformType">Type:</label>
+        <select id="transformType">
+          <option value="enlargement">Enlargement</option>
+          <option value="xstretch">X-Stretch</option>
+          <option value="ystretch">Y-Stretch</option>
+          <option value="rotation">ACW Rotation</option>
+          <option value="reflectX">Reflect in x=0</option>
+          <option value="reflectY">Reflect in y=0</option>
+          <option value="reflectYX">Reflect in y=x</option>
+          <option value="reflectYnegX">Reflect in y=-x</option>
+          <option value="shearX">Shear X</option>
+          <option value="shearY">Shear Y</option>
+        </select>
+        <span id="paramContainer">
+          <label for="transformParam">Param:</label>
+          <input type="number" id="transformParam" value="1" step="0.1" />
+        </span>
+        <button id="addTransformBtn">Add</button>
+      </div>
+      <div id="transformationList"></div>
+      <div style="margin-top:10px; text-align:center;">
+        <button id="applyTransformationsBtn">Apply Transformations</button>
+        <button id="resetTransformationsBtn" class="small-btn">Reset Shape</button>
+      </div>
+    </div>
+    <!-- Matrix Visualiser Panel -->
+    <div class="control-panel" id="matrixVisualiserPanel">
+      <h3>Matrix Visualiser</h3>
+      <div id="matrixList"></div>
+      <div class="matrix-block" id="compositeMatrixDisplay"></div>
+    </div>
+  </div>
+
+  <!-- Canvas Container -->
+  <div id="canvasContainer">
+    <canvas id="canvas" width="800" height="800"></canvas>
+    <!-- Minimalist Offset Control Panel (attached to grid) -->
+    <div id="offsetControlPanel">
+      <div>
+        X: <button id="offsetLeftBtn">◀</button>
+        <span id="xOffsetDisplay">0</span>
+        <button id="offsetRightBtn">▶</button>
+      </div>
+      <div style="margin-top:4px;">
+        Y: <button id="offsetDownBtn">▼</button>
+        <span id="yOffsetDisplay">0</span>
+        <button id="offsetUpBtn">▲</button>
+      </div>
+      <div style="margin-top:6px; text-align:center;">
+        <button id="toggleShapeBtn">
+          <span id="shapeIcon">□</span>
+        </button>
+      </div>
+    </div>
+    <!-- Draggable Offset Box (drag and snap feature restored) -->
+    <div id="offsetControl">
+      <div id="draggableShape" style="font-size:24px;">□</div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const baseGridSize = 40; // base grid cell size in pixels
+    let gridZoomFactor = 1;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    let currentMatrix = { a: 1, b: 0, c: 0, d: 1 };
+    let transformationSequence = []; // array of {type, param}
+    let shapeType = 'square'; // or 'triangle'
+    // Offset in grid units
+    let offsetX = 0, offsetY = 0;
+
+    // Utility: Multiply two 2x2 matrices
+    function multiplyMatrix(M1, M2) {
+      return {
+        a: M1.a * M2.a + M1.c * M2.b,
+        b: M1.b * M2.a + M1.d * M2.b,
+        c: M1.a * M2.c + M1.c * M2.d,
+        d: M1.b * M2.c + M1.d * M2.d
+      };
+    }
+
+    // Get matrix for a given transformation about the origin
+    function getMatrixFromTransformation(type, param) {
+      switch (type) {
+        case 'enlargement':
+          return { a: param, b: 0, c: 0, d: param };
+        case 'xstretch':
+          return { a: param, b: 0, c: 0, d: 1 };
+        case 'ystretch':
+          return { a: 1, b: 0, c: 0, d: param };
+        case 'rotation':
+          // Fixed for ACW rotation: standard counterclockwise matrix
+          let rad = param * Math.PI / 180;
+          return { a: Math.cos(rad), b: -Math.sin(rad), c: Math.sin(rad), d: Math.cos(rad) };
+        case 'reflectX': // (x,y) -> (-x,y)
+          return { a: -1, b: 0, c: 0, d: 1 };
+        case 'reflectY': // (x,y) -> (x,-y)
+          return { a: 1, b: 0, c: 0, d: -1 };
+        case 'reflectYX': // (x,y) -> (y,x)
+          return { a: 0, b: 1, c: 1, d: 0 };
+        case 'reflectYnegX': // (x,y) -> (-y,-x)
+          return { a: 0, b: -1, c: -1, d: 0 };
+        case 'shearX': // (x,y) -> (x + k*y, y)
+          return { a: 1, b: 0, c: param, d: 1 };
+        case 'shearY': // (x,y) -> (x, y + k*x)
+          return { a: 1, b: param, c: 0, d: 1 };
+        default:
+          return { a: 1, b: 0, c: 0, d: 1 };
+      }
+    }
+
+    // Draw the shape:
+    // 1. Translate to canvas center.
+    // 2. Apply composite transformation about the origin.
+    // 3. Apply offset (in grid units; note y-axis inverted).
+    // 4. Draw the shape centered at (0,0).
+    function drawShape() {
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.transform(currentMatrix.a, currentMatrix.b, currentMatrix.c, currentMatrix.d, 0, 0);
+      ctx.translate(offsetX * baseGridSize, -offsetY * baseGridSize);
+      ctx.fillStyle = '#FF5733';
+      if (shapeType === 'square') {
+        ctx.fillRect(-baseGridSize, -baseGridSize, baseGridSize * 2, baseGridSize * 2);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(-baseGridSize, baseGridSize);
+        ctx.lineTo(baseGridSize, baseGridSize);
+        ctx.lineTo(-baseGridSize, -baseGridSize);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Draw grid and axes; adjust grid zoom if shape moves far.
+    function drawGrid() {
+      const shapePixelX = Math.abs(offsetX * baseGridSize);
+      const shapePixelY = Math.abs(offsetY * baseGridSize);
+      const thresholdX = canvas.width / 2;
+      const thresholdY = canvas.height / 2;
+      gridZoomFactor = Math.max(1, shapePixelX / thresholdX, shapePixelY / thresholdY);
+      const effectiveGridSize = baseGridSize / gridZoomFactor;
+
+      ctx.save();
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += effectiveGridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += effectiveGridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX, 0);
+      ctx.lineTo(centerX, canvas.height);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(canvas.width, centerY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function redraw() {
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawShape();
+      drawGrid();
+      updateMatrixVisualiser();
+      updateOffsetControlPosition();
+    }
+
+    // Animate from one matrix to another with 500ms pause.
+    function animateToMatrix(startMatrix, targetMatrix, callback) {
+      let steps = 20, step = 0;
+      let interval = setInterval(() => {
+        let t = step / steps;
+        currentMatrix = {
+          a: startMatrix.a + (targetMatrix.a - startMatrix.a) * t,
+          b: startMatrix.b + (targetMatrix.b - startMatrix.b) * t,
+          c: startMatrix.c + (targetMatrix.c - startMatrix.c) * t,
+          d: startMatrix.d + (targetMatrix.d - startMatrix.d) * t
+        };
+        redraw();
+        if (++step > steps) {
+          clearInterval(interval);
+          currentMatrix = targetMatrix;
+          redraw();
+          setTimeout(() => { if (callback) callback(); }, 500);
+        }
+      }, 30);
+    }
+
+    // Animate transformations sequentially.
+    function animateSequentialTransformations() {
+      let identity = { a: 1, b: 0, c: 0, d: 1 };
+      let seq = transformationSequence.slice();
+      currentMatrix = identity;
+      function animateNext(index, current) {
+        if (index >= seq.length) return;
+        let M = getMatrixFromTransformation(seq[index].type, seq[index].param);
+        let target = multiplyMatrix(current, M);
+        animateToMatrix(current, target, () => {
+          animateNext(index + 1, target);
+        });
+      }
+      animateNext(0, identity);
+    }
+
+    // ---------------- Transformation Sequence Builder UI ----------------
+    const transformTypeSelect = document.getElementById('transformType');
+    const transformParamInput = document.getElementById('transformParam');
+    const paramContainer = document.getElementById('paramContainer');
+    const transformationListDiv = document.getElementById('transformationList');
+    const addTransformBtn = document.getElementById('addTransformBtn');
+    const applyTransformationsBtn = document.getElementById('applyTransformationsBtn');
+    const resetTransformationsBtn = document.getElementById('resetTransformationsBtn');
+
+    function updateParamVisibility() {
+      const type = transformTypeSelect.value;
+      if (type === 'reflectX' || type === 'reflectY' || type === 'reflectYX' || type === 'reflectYnegX') {
+        paramContainer.style.display = 'none';
+      } else {
+        paramContainer.style.display = 'inline';
+        if (type === 'rotation') {
+          transformParamInput.value = 45;
+        } else if (type === 'enlargement') {
+          transformParamInput.value = 2;
+        } else if (type === 'xstretch' || type === 'ystretch' || type === 'shearX' || type === 'shearY') {
+          transformParamInput.value = 0.5;
+        }
+      }
+    }
+    transformTypeSelect.addEventListener('change', updateParamVisibility);
+    updateParamVisibility();
+
+    addTransformBtn.addEventListener('click', () => {
+      const type = transformTypeSelect.value;
+      const param = parseFloat(transformParamInput.value);
+      transformationSequence.push({ type, param });
+      renderTransformationSequence();
+      updateMatrixVisualiser();
+    });
+
+    function renderTransformationSequence() {
+      transformationListDiv.innerHTML = '';
+      transformationSequence.forEach((trans, index) => {
+        const row = document.createElement('div');
+        row.className = 'transformation-row';
+        const label = document.createElement('span');
+        label.textContent = trans.type + ((isNaN(trans.param) ||
+          (trans.type === 'reflectX' || trans.type === 'reflectY' || trans.type === 'reflectYX' || trans.type === 'reflectYnegX')) ? '' : ' (' + trans.param + ')');
+        row.appendChild(label);
+        // Up button
+        const upBtn = document.createElement('button');
+        upBtn.className = 'small-btn';
+        upBtn.textContent = '↑';
+        upBtn.onclick = () => {
+          if (index > 0) {
+            [transformationSequence[index - 1], transformationSequence[index]] = [transformationSequence[index], transformationSequence[index - 1]];
+            renderTransformationSequence();
+            updateMatrixVisualiser();
+          }
+        };
+        row.appendChild(upBtn);
+        // Down button
+        const downBtn = document.createElement('button');
+        downBtn.className = 'small-btn';
+        downBtn.textContent = '↓';
+        downBtn.onclick = () => {
+          if (index < transformationSequence.length - 1) {
+            [transformationSequence[index + 1], transformationSequence[index]] = [transformationSequence[index], transformationSequence[index + 1]];
+            renderTransformationSequence();
+            updateMatrixVisualiser();
+          }
+        };
+        row.appendChild(downBtn);
+        // Delete button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn';
+        delBtn.textContent = 'X';
+        delBtn.onclick = () => {
+          transformationSequence.splice(index, 1);
+          renderTransformationSequence();
+          updateMatrixVisualiser();
+        };
+        row.appendChild(delBtn);
+        transformationListDiv.appendChild(row);
+      });
+    }
+
+    applyTransformationsBtn.addEventListener('click', () => {
+      animateSequentialTransformations();
+    });
+    resetTransformationsBtn.addEventListener('click', () => {
+      currentMatrix = { a: 1, b: 0, c: 0, d: 1 };
+      transformationSequence = [];
+      offsetX = 0;
+      offsetY = 0;
+      gridZoomFactor = 1;
+      renderTransformationSequence();
+      updateMatrixVisualiser();
+      redraw();
+    });
+    // ---------------- End Transformation Sequence Builder ----------------
+
+    // ---------------- Matrix Visualiser ----------------
+    const matrixListDiv = document.getElementById('matrixList');
+    const compositeMatrixDisplay = document.getElementById('compositeMatrixDisplay');
+    function matrixToString(M) {
+      return `[ ${M.a.toFixed(2)}  ${M.c.toFixed(2)} ]\n[ ${M.b.toFixed(2)}  ${M.d.toFixed(2)} ]`;
+    }
+    function updateMatrixVisualiser() {
+      matrixListDiv.innerHTML = '';
+      let cumulative = { a: 1, b: 0, c: 0, d: 1 };
+      transformationSequence.forEach((trans, index) => {
+        const M = getMatrixFromTransformation(trans.type, trans.param);
+        cumulative = multiplyMatrix(cumulative, M);
+        const block = document.createElement('div');
+        block.className = 'matrix-block';
+        block.textContent = matrixToString(M);
+        matrixListDiv.appendChild(block);
+      });
+      compositeMatrixDisplay.textContent = 'Composite:\n' + matrixToString(cumulative);
+    }
+    // ---------------- End Matrix Visualiser ----------------
+
+    // ---------------- Offset Control Panel ----------------
+    const offsetLeftBtn = document.getElementById('offsetLeftBtn');
+    const offsetRightBtn = document.getElementById('offsetRightBtn');
+    const offsetUpBtn = document.getElementById('offsetUpBtn');
+    const offsetDownBtn = document.getElementById('offsetDownBtn');
+    const toggleShapeBtn = document.getElementById('toggleShapeBtn');
+    const xOffsetDisplay = document.getElementById('xOffsetDisplay');
+    const yOffsetDisplay = document.getElementById('yOffsetDisplay');
+    const shapeIcon = document.getElementById('shapeIcon');
+
+    offsetLeftBtn.addEventListener('click', () => { offsetX -= 1; redraw(); updateOffsetDisplay(); });
+    offsetRightBtn.addEventListener('click', () => { offsetX += 1; redraw(); updateOffsetDisplay(); });
+    offsetUpBtn.addEventListener('click', () => { offsetY += 1; redraw(); updateOffsetDisplay(); });
+    offsetDownBtn.addEventListener('click', () => { offsetY -= 1; redraw(); updateOffsetDisplay(); });
+    toggleShapeBtn.addEventListener('click', () => {
+      shapeType = (shapeType === 'square') ? 'triangle' : 'square';
+      shapeIcon.textContent = (shapeType === 'square') ? '□' : '△';
+      document.getElementById('draggableShape').textContent = (shapeType === 'square') ? '□' : '△';
+      redraw();
+    });
+    function updateOffsetDisplay() {
+      xOffsetDisplay.textContent = offsetX;
+      yOffsetDisplay.textContent = offsetY;
+    }
+    // ---------------- End Offset Control Panel ----------------
+
+    // ---------------- Draggable Offset Box (Drag and Snap Feature) ----------------
+    const offsetControl = document.getElementById('offsetControl');
+    const draggableShape = document.getElementById('draggableShape');
+    function updateOffsetControlPosition() {
+      let x = centerX + offsetX * baseGridSize - offsetControl.offsetWidth / 2;
+      let y = centerY - offsetY * baseGridSize - offsetControl.offsetHeight / 2;
+      offsetControl.style.left = x + 'px';
+      offsetControl.style.top = y + 'px';
+    }
+    updateOffsetControlPosition();
+
+    let isDragging = false, dragStartX, dragStartY, initOffsetX, initOffsetY;
+    offsetControl.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      initOffsetX = offsetX;
+      initOffsetY = offsetY;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        let dx = e.clientX - dragStartX;
+        let dy = e.clientY - dragStartY;
+        offsetX = initOffsetX + Math.round(dx / baseGridSize);
+        offsetY = initOffsetY - Math.round(dy / baseGridSize);
+        redraw();
+        updateOffsetDisplay();
+      }
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; });
+    // ---------------- End Draggable Offset Box ----------------
+
+    // Initial draw
+    redraw();
+  </script>
+</body>
+</html>
